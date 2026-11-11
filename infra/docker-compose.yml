@@ -1,0 +1,98 @@
+services:
+  # ==============================================================================
+  # PostgreSQL Database Service
+  # Hardened: non-root user, isolated network, volume persistence, health checks
+  # ==============================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: pg_management_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-pg_management_db}
+      POSTGRES_USER: ${DB_USER:-pg_admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-change_this_to_a_strong_password_in_production}
+    ports:
+      # Bind strictly to localhost in development; remove in production to keep DB isolated
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-pg_admin} -d ${DB_NAME:-pg_management_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - pg_saas_network
+
+  # ==============================================================================
+  # Redis Cache & Rate Limiting Service
+  # Hardened: password-protected, persistence enabled, health checks
+  # ==============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: pg_management_redis
+    restart: unless-stopped
+    command: >
+      redis-server 
+      --requirepass ${REDIS_PASSWORD:-change_this_to_a_strong_redis_password}
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    ports:
+      # Bind strictly to localhost in development
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-change_this_to_a_strong_redis_password}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - pg_saas_network
+
+  # ==============================================================================
+  # Spring Boot Backend Application
+  # Runs after DB and Redis health checks pass
+  # ==============================================================================
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: pg_management_backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8080
+      SPRING_PROFILES_ACTIVE: prod
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-pg_management_db}
+      DB_USER: ${DB_USER:-pg_admin}
+      DB_PASSWORD: ${DB_PASSWORD:-change_this_to_a_strong_password_in_production}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-change_this_to_a_strong_redis_password}
+      JWT_SECRET: ${JWT_SECRET}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:8081}
+    ports:
+      - "127.0.0.1:${SERVER_PORT:-8080}:8080"
+    networks:
+      - pg_saas_network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  pg_saas_network:
+    driver: bridge

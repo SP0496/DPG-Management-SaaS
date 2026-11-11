@@ -1,0 +1,14 @@
+# ==============================================================================
+# Development Profile (application-dev.yml)
+# ==============================================================================
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+
+logging:
+  level:
+    root: INFO
+    com.pgmanagement: DEBUG
+    org.springframework.security: INFO

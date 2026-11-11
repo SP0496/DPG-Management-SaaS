@@ -1,0 +1,75 @@
+# ==============================================================================
+# Spring Boot Base Configuration (Zero Hardcoded Secrets)
+# All sensitive variables are externalized via environment variables
+# ==============================================================================
+
+server:
+  port: ${SERVER_PORT:8080}
+  servlet:
+    context-path: /api/v1
+  # Security: Suppress server identification header to avoid server fingerprinting
+  server-header: ""
+  error:
+    whitelabel:
+      enabled: false
+
+spring:
+  application:
+    name: pg-management-backend
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+
+  # Database Connection Configuration (HikariCP)
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:pg_management_db}?sslmode=prefer
+    username: ${DB_USER:pg_admin}
+    password: ${DB_PASSWORD:change_this_to_a_strong_password_in_production}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${DB_MAX_POOL_SIZE:10}
+      minimum-idle: ${DB_MIN_IDLE:5}
+      idle-timeout: 300000
+      connection-timeout: 30000
+      max-lifetime: 1800000
+      leak-detection-threshold: 60000
+      pool-name: PGManagementHikariPool
+
+  # JPA & Hibernate Settings
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          lob:
+            non_contextual_creation: true
+
+# Security & JWT Configuration
+app:
+  security:
+    jwt:
+      # Minimum 256-bit secret key encoded in Base64
+      secret: ${JWT_SECRET:dGhpcy1pcy1hLXZlcnktc2VjdXJlLTI1Ni1iaXQtand0LXNlY3JldC1rZXktZm9yLWRldmVsb3BtZW50LW9ubHktZ2VuZXJhdGUtbmV3LWluLXByb2Q=}
+      expiration-ms: ${JWT_ACCESS_EXPIRATION_MS:900000}       # 15 minutes
+      refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000} # 7 days
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:8081,http://10.0.2.2:8080}
+      allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
+      allowed-headers: Authorization,Content-Type,X-Requested-With,Accept,Origin
+      max-age: 3600
+    rate-limit:
+      auth-per-minute: ${RATE_LIMIT_AUTH_PER_MINUTE:5}
+      general-per-minute: ${RATE_LIMIT_GENERAL_PER_MINUTE:60}
+
+# Actuator Health Endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: never

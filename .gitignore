@@ -1,0 +1,121 @@
+# ==============================================================================
+# PG-Management-SaaS Root .gitignore
+# Strict security-first exclusions to prevent secret leakage and repository bloat
+# ==============================================================================
+
+# --- Secrets, API Keys & Environment Variables (CRITICAL) ---
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+*.env
+*.env.*
+!*.env.example
+!**/.env.example
+*.pem
+*.key
+*.pkcs12
+*.pfx
+*.p12
+*.keystore
+*.jks
+credentials.json
+service-account*.json
+jwt-secret*.txt
+secrets/
+
+# --- Operating System Files ---
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+[Dd]esktop.ini
+
+# --- IDE & Editor Artifacts ---
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.sublime-project
+*.sublime-workspace
+.project
+.classpath
+.settings/
+
+# --- Java / Maven / Spring Boot ---
+backend/target/
+**/target/
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+*.zip
+*.tar.gz
+*.rar
+hs_err_pid*
+replay_pid*
+.mvn/wrapper/maven-wrapper.jar
+
+# --- Node.js & React Native ---
+node_modules/
+**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.pnpm-debug.log*
+.npm/
+.yarn/
+.expo/
+.expo-shared/
+web-build/
+dist/
+build/
+
+# --- Android Artifacts (Mobile) ---
+mobile/android/app/build/
+mobile/android/.gradle/
+mobile/android/captures/
+mobile/android/local.properties
+mobile/android/**/*.keystore
+mobile/android/**/*.jks
+
+# --- iOS Artifacts (Mobile) ---
+mobile/ios/build/
+mobile/ios/Pods/
+mobile/ios/*.xcworkspace
+mobile/ios/*.xcuserdata
+mobile/ios/**/DerivedData/
+
+# --- Temporary & Diagnostic Files ---
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+*.bak
+*.orig
+*.log
+logs/
+**/logs/
+crash-dumps/
+
+# --- Database & Storage Dumps ---
+*.sqlite
+*.sqlite3
+*.db
+pgdata/
+**/pgdata/
+dump.rdb
