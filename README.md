@@ -9,10 +9,20 @@ A high-performance, enterprise-grade, multi-tenant Paying Guest (PG) and Hostel 
 
 ---
 
-## 📁 Repository Structure
+## Repository Structure
 
 ```text
 PG-Management-SaaS/
+│
+├── web/                         # Production Web Portal (Vite + React + Tailwind)
+│   ├── public/
+│   │   └── favicon.svg          # Crisp vector favicon (zero AI templates)
+│   ├── src/
+│   │   ├── components/          # Navbar & Footer (zero AI tags, SVG icons)
+│   │   └── pages/               # HomePage, PrivacyPolicy, Terms, DomainSetup
+│   ├── package.json
+│   ├── tailwind.config.js
+│   └── vite.config.ts
 │
 ├── mobile/                      # React Native / Expo Application
 │   ├── src/
@@ -47,10 +57,13 @@ PG-Management-SaaS/
 │   ├── DATABASE_DESIGN.md       # Multi-tenant ER diagrams & schema specs
 │   ├── API_DOCUMENTATION.md     # REST endpoint specs & security headers
 │   ├── IMPLEMENTATION_ROADMAP.md# Phased milestone delivery roadmap
-│   └── SECURITY_AUDIT_REPORT.md # Security audit & defensive verification
+│   ├── SECURITY_AUDIT_REPORT.md # Security audit & defensive verification
+│   └── BRAND_AND_DESIGN_STANDARDS.md # Anti-vibe-coding standards & checklist
 │
 ├── infra/                       # Infrastructure Orchestration
 │   ├── docker-compose.yml       # PostgreSQL 16 & Redis 7 isolation
+│   ├── nginx/
+│   │   └── nginx.conf           # Custom domain reverse proxy & SSL config
 │   └── postgres/
 │       └── init.sql             # UUID extensions, schemas & indices
 │
@@ -61,7 +74,7 @@ PG-Management-SaaS/
 
 ---
 
-## 🛡️ Security Hardening Matrix
+## Security Hardening Matrix
 
 | Security Control | Defense Mechanism | Implementation Details |
 |---|---|---|
@@ -80,7 +93,7 @@ PG-Management-SaaS/
 
 ---
 
-## 🚀 Quick Start Guide
+## Quick Start Guide
 
 ### 1. Prerequisites
 - **Java**: JDK 17 or higher (`java -version`)
@@ -127,7 +140,7 @@ npm start
 
 ---
 
-## 🧪 Testing & Verification
+## Testing & Verification
 
 Run automated security integration tests:
 ```bash
@@ -142,9 +155,10 @@ Verifies:
 
 ---
 
-## 📄 Documentation Reference
+## Documentation Reference
 - [Project Requirements](file:///d:/DPG-Management-SaaS/docs/PROJECT_REQUIREMENTS.md)
 - [Database Design](file:///d:/DPG-Management-SaaS/docs/DATABASE_DESIGN.md)
 - [API Documentation](file:///d:/DPG-Management-SaaS/docs/API_DOCUMENTATION.md)
 - [Implementation Roadmap](file:///d:/DPG-Management-SaaS/docs/IMPLEMENTATION_ROADMAP.md)
 - [Security Audit Report](file:///d:/DPG-Management-SaaS/docs/SECURITY_AUDIT_REPORT.md)
+- [Brand & Anti-Vibe-Coding Standards](file:///d:/DPG-Management-SaaS/docs/BRAND_AND_DESIGN_STANDARDS.md)
