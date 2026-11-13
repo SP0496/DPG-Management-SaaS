@@ -7,10 +7,27 @@
     scroll-behavior: smooth;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   }
-  
+
   body {
-    background-color: #0B0F19;
-    color: #F8FAFC;
+    background-color: #EAF6FF;
+    color: #142B4A;
     overflow-x: hidden;
+  }
+}
+
+@layer components {
+  /* Primary CTA: Tangerine background (#FF8C42) with Midnight Navy text (#142B4A), Hover (#E8752E) */
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-md bg-[#FF8C42] px-5 py-2.5 text-sm font-semibold text-[#142B4A] transition-colors hover:bg-[#E8752E] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF8C42] disabled:bg-[#D1D5DB] disabled:text-[#6B7280] disabled:cursor-not-allowed;
+  }
+
+  /* Secondary Button: Midnight Navy background (#142B4A) with Ice Blue text (#EAF6FF), Hover (#1D3D63) */
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-md bg-[#142B4A] px-5 py-2.5 text-sm font-semibold text-[#EAF6FF] transition-colors hover:bg-[#1D3D63] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF8C42] disabled:bg-[#D1D5DB] disabled:text-[#6B7280] disabled:cursor-not-allowed;
+  }
+
+  /* Standard Input Field: Ice Blue surface with Midnight Navy text and Tangerine focus border */
+  .input-field {
+    @apply w-full rounded-md border border-[#142B4A]/30 bg-[#EAF6FF] px-3.5 py-2.5 text-sm text-[#142B4A] placeholder-[#334E73] focus:border-[#FF8C42] focus:outline-none focus:ring-2 focus:ring-[#FF8C42]/40 disabled:bg-[#D1D5DB] disabled:text-[#6B7280] disabled:cursor-not-allowed;
   }
 }

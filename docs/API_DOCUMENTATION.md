@@ -1,51 +1,30 @@
-# API Documentation: PG-Management-SaaS (v1)
+# API Documentation: PG Management SaaS (v1)
 
-## 1. Overview & Standard Protocols
-All endpoints conform to RESTful architectural constraints and are served exclusively over HTTPS.
+## 1. Base Configuration & Security Protocols
 
 - **Base URL**: `/api/v1`
-- **Protocol**: HTTPS (HSTS enforced)
-- **Data Format**: `application/json; charset=UTF-8`
-- **Authentication**: JWT Bearer Token (`Authorization: Bearer <access_token>`)
+- **Protocol**: HTTPS (TLS 1.3 + HSTS)
+- **Authentication**: Stateless Bearer JWT (`Authorization: Bearer <access_token>`)
+- **Roles**:
+  - `OWNER`: PG Property Owner (scoped exclusively to `owner_id == currentUser.id`)
+  - `RESIDENT`: PG Occupant (scoped exclusively to `resident_id == currentUser.id`)
 
 ---
 
-## 2. Global Security Headers
-Every response returned by the backend includes the following mandatory security headers:
+## 2. Standard Response Contracts
 
-| Header Name | Value | Purpose |
-|---|---|---|
-| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains; preload` | Forces HTTPS |
-| `X-Content-Type-Options` | `nosniff` | Prevents MIME-sniffing |
-| `X-Frame-Options` | `DENY` | Prevents clickjacking |
-| `Content-Security-Policy` | `default-src 'self'; frame-ancestors 'none';` | Protects against XSS & framing |
-| `Referrer-Policy` | `strict-origin-when-cross-origin` | Minimizes referrer leakage |
-| `Cache-Control` | `no-cache, no-store, max-age=0, must-revalidate` | Prevents caching of sensitive PII |
-
----
-
-## 3. Rate Limiting Headers
-When rate limits are applied, the server provides the following feedback headers:
-- `X-RateLimit-Limit`: Maximum requests allowed in the window (e.g., `5` for auth, `60` for general).
-- `X-RateLimit-Remaining`: Remaining request quota.
-- `Retry-After`: Seconds to wait before retrying (on `429 Too Many Requests`).
-
----
-
-## 4. Standard Response Formats
-
-### 4.1 Success Response (`200 OK`, `201 Created`)
+### 2.1 Success Envelope (`200 OK`, `201 Created`)
 ```json
 {
   "success": true,
   "message": "Operation completed successfully",
-  "data": { ... },
-  "timestamp": "2026-11-11T19:50:00Z"
+  "data": {},
+  "timestamp": "2026-11-12T00:50:00Z"
 }
 ```
 
-### 4.2 Standard Error Response (`400`, `401`, `403`, `404`, `429`, `500`)
-*(Zero stack traces, internal paths, or database hints leaked)*
+### 2.2 Error Envelope (`400`, `401`, `403`, `404`, `409`, `429`, `500`)
+*(Zero stack traces, SQL errors, or internal implementation hints)*
 ```json
 {
   "success": false,
@@ -54,139 +33,305 @@ When rate limits are applied, the server provides the following feedback headers
   "message": "Validation failed for one or more fields",
   "errors": [
     {
-      "field": "email",
-      "message": "Invalid email address format"
+      "field": "phone",
+      "message": "Phone number must be valid E.164 format"
     }
   ],
-  "path": "/api/v1/auth/login",
-  "timestamp": "2026-11-11T19:50:00Z"
+  "path": "/api/v1/auth/otp/verify",
+  "timestamp": "2026-11-12T00:50:00Z"
 }
 ```
 
 ---
 
-## 5. Endpoints Specification
+## 3. Identity & Authentication Module (`/api/v1/auth`)
+*Rate Limit: 5 requests / minute per IP.*
 
-### 5.1 Authentication Endpoints (`/api/v1/auth`)
-*Rate limit: 5 requests / minute per IP.*
-
-#### `POST /api/v1/auth/register`
-Creates a new property owner account and organization.
+### 3.1 Verify Firebase Phone OTP & Issue Backend Tokens
+- **Endpoint**: `POST /api/v1/auth/otp/verify`
 - **Access**: Public
-- **Request Body**:
+- **Request**:
 ```json
 {
-  "organizationName": "Sunrise Hostels",
-  "firstName": "John",
-  "lastName": "Doe",
-  "email": "owner@sunrisehostels.com",
-  "phone": "+919876543210",
-  "password": "SecurePassword#2026"
+  "firebaseIdToken": "eyJhbGciOiJSUzI1NiIsImtpZCI6...",
+  "fullName": "Rajesh Sharma",
+  "preferredRole": "OWNER"
 }
 ```
-- **Response `201 Created`**:
-```json
-{
-  "success": true,
-  "message": "User registered successfully",
-  "data": {
-    "userId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-    "email": "owner@sunrisehostels.com",
-    "role": "ROLE_PROPERTY_ADMIN"
-  }
-}
-```
-
-#### `POST /api/v1/auth/login`
-Authenticates a user and returns short-lived access token and refresh token.
-- **Access**: Public
-- **Request Body**:
-```json
-{
-  "email": "owner@sunrisehostels.com",
-  "password": "SecurePassword#2026"
-}
-```
+*(Note: If the verified phone number already has an active Resident invitation/stay created by an Owner, the backend enforces `RESIDENT` role regardless of `preferredRole`.)*
 - **Response `200 OK`**:
 ```json
 {
   "success": true,
-  "message": "Authentication successful",
+  "message": "Phone OTP verified",
   "data": {
     "tokenType": "Bearer",
     "accessToken": "eyJhbGciOiJIUzUxMiJ9...",
+    "refreshToken": "eyJhbGciOiJIUzUxMiJ9...",
     "expiresIn": 900,
-    "refreshToken": "d7b0a391-7649-43c2...",
+    "isNewUser": false,
     "user": {
       "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-      "email": "owner@sunrisehostels.com",
-      "role": "ROLE_PROPERTY_ADMIN",
-      "organizationId": "e1f1c712-4299-4c11-9a72-7a0c8b06714c"
+      "phone": "+919876543210",
+      "fullName": "Rajesh Sharma",
+      "role": "OWNER"
     }
   }
 }
 ```
 
-#### `GET /api/v1/auth/me`
-Retrieves the currently authenticated user's profile.
-- **Access**: `ROLE_SUPER_ADMIN`, `ROLE_PROPERTY_ADMIN`, `ROLE_STAFF`, `ROLE_TENANT`
+### 3.2 Refresh Access Token
+- **Endpoint**: `POST /api/v1/auth/refresh`
+- **Access**: Public (with valid non-revoked Refresh Token)
+- **Request**: `{ "refreshToken": "..." }`
+
+### 3.3 Logout (Revoke Token)
+- **Endpoint**: `POST /api/v1/auth/logout`
+- **Access**: `OWNER`, `RESIDENT`
+
+### 3.4 Get Current Authenticated Profile
+- **Endpoint**: `GET /api/v1/auth/me`
+- **Access**: `OWNER`, `RESIDENT`
 
 ---
 
-### 5.2 Property & Inventory Management (`/api/v1/properties`)
-*Rate limit: 60 requests / minute.*
+## 4. Independent PG Owner Merchant Module (`/api/v1/owner/merchant`)
+*Strictly restricted to `OWNER`. Enables direct-to-owner bank settlement via Razorpay.*
 
-#### `GET /api/v1/properties`
-Lists all properties under the authenticated user's organization.
-- **Access**: `ROLE_PROPERTY_ADMIN`, `ROLE_STAFF`
-
-#### `POST /api/v1/properties`
-Creates a new property branch.
-- **Access**: `ROLE_PROPERTY_ADMIN` only
-- **Request Body**:
+### 4.1 Get Razorpay Partner OAuth Authorization URL
+- **Endpoint**: `GET /api/v1/owner/merchant/razorpay/connect-url`
+- **Access**: `OWNER`
+- **Response `200 OK`**:
 ```json
 {
-  "name": "Sunrise PG - Electronic City Branch",
-  "propertyType": "PG_COED",
-  "addressLine1": "Plot 42, Phase 1",
-  "city": "Bengaluru",
-  "state": "Karnataka",
-  "postalCode": "560100",
-  "emergencyContact": "+919876543299",
-  "amenities": ["WIFI", "AC", "FOOD_3X", "BIKE_PARKING", "CCTV"]
+  "success": true,
+  "data": {
+    "authorizationUrl": "https://auth.razorpay.com/authorize?client_id=...&state=signed_csrf_nonce",
+    "expiresInSeconds": 600
+  }
+}
+```
+
+### 4.2 Complete Razorpay OAuth Callback
+- **Endpoint**: `POST /api/v1/owner/merchant/razorpay/callback`
+- **Access**: `OWNER`
+- **Request**: `{ "code": "rzp_auth_code_123", "state": "signed_csrf_nonce" }`
+- **Behavior**: Exchanges authorization code with Razorpay Partner API, validates merchant KYC & bank status, encrypts tokens with AES-256-GCM, and saves to `owner_merchant_accounts`. Never returns raw tokens.
+
+### 4.3 Get Merchant Onboarding & Bank Verification Status
+- **Endpoint**: `GET /api/v1/owner/merchant/status`
+- **Access**: `OWNER`
+- **Response `200 OK`**:
+```json
+{
+  "success": true,
+  "data": {
+    "integrationMode": "PARTNER_OAUTH",
+    "razorpayMerchantId": "merch_N9X2k81aBc",
+    "onboardingStatus": "ACTIVATED",
+    "bankVerificationStatus": "VERIFIED",
+    "bankAccountLast4": "4821",
+    "bankIfsc": "HDFC0001234",
+    "readyToAcceptRent": true
+  }
 }
 ```
 
 ---
 
-### 5.3 Admin Management (`/api/v1/admin`)
-*Strictly restricted to Admin roles with audit logging.*
+## 5. Property, Room & Bed Module (`/api/v1/owner/properties`)
+*Strictly restricted to `OWNER`. Scoped by `owner_id == currentUser.id`.*
 
-#### `GET /api/v1/admin/dashboard`
-Returns high-level business metrics: revenue, total occupancy, vacancy breakdown, outstanding dues.
-- **Access**: `ROLE_PROPERTY_ADMIN`, `ROLE_SUPER_ADMIN`
+### 5.1 List Owner Properties
+- **Endpoint**: `GET /api/v1/owner/properties`
+- **Access**: `OWNER`
 
-#### `GET /api/v1/admin/audit-logs`
-Returns chronologically ordered audit logs for security oversight.
-- **Access**: `ROLE_PROPERTY_ADMIN` (org-scoped), `ROLE_SUPER_ADMIN` (platform-wide)
+### 5.2 Create Property
+- **Endpoint**: `POST /api/v1/owner/properties`
+- **Access**: `OWNER`
+- **Request**:
+```json
+{
+  "name": "Sunrise Residency - Koramangala",
+  "propertyType": "PG_COED",
+  "addressLine1": "12th Main, 4th Block",
+  "city": "Bengaluru",
+  "state": "Karnataka",
+  "postalCode": "560034",
+  "emergencyContact": "+919876543210",
+  "defaultBillingDay": 1,
+  "gracePeriodDays": 5,
+  "lateFeeAmount": 250.00,
+  "amenities": ["WIFI", "AC", "FOOD_3X", "CCTV"]
+}
+```
+
+### 5.3 Create Room & Generate Beds
+- **Endpoint**: `POST /api/v1/owner/properties/{propertyId}/rooms`
+- **Access**: `OWNER`
+- **Request**:
+```json
+{
+  "roomNumber": "204",
+  "floorNumber": 2,
+  "sharingType": "DOUBLE",
+  "baseMonthlyRent": 9500.00,
+  "hasAttachedBathroom": true,
+  "bedCodes": ["204-A", "204-B"]
+}
+```
+
+### 5.4 Update Bed Status
+- **Endpoint**: `PATCH /api/v1/owner/beds/{bedId}/status`
+- **Access**: `OWNER`
+- **Request**: `{ "status": "MAINTENANCE" }`
 
 ---
 
-### 5.4 Tenant Management (`/api/v1/tenants`)
+## 6. Resident Lifecycle Module
 
-#### `POST /api/v1/tenants/onboard`
-Onboards a new tenant and assigns an available bed.
-- **Access**: `ROLE_PROPERTY_ADMIN`, `ROLE_STAFF`
-- **Request Body**:
+### 6.1 Onboard Resident to Bed (`OWNER`)
+- **Endpoint**: `POST /api/v1/owner/residents/onboard`
+- **Access**: `OWNER`
+- **Request**:
 ```json
 {
-  "firstName": "Alex",
-  "lastName": "Smith",
-  "email": "alex.smith@example.com",
-  "phone": "+919123456780",
+  "fullName": "Arjun Mehta",
+  "phone": "+919123456789",
+  "email": "arjun@example.com",
   "bedId": "8b0870f7-b829-4d40-9f22-f674d84f885d",
   "checkInDate": "2026-12-01",
-  "monthlyRent": 8500.00,
-  "securityDeposit": 15000.00
+  "agreedMonthlyRent": 9500.00,
+  "securityDepositAmount": 15000.00
+}
+```
+- **Behavior**: Creates/links `RESIDENT` user by phone, acquires optimistic lock on `bedId`, marks bed `OCCUPIED`, creates `ACTIVE` stay.
+
+### 6.2 List Owner's Active Residents (`OWNER`)
+- **Endpoint**: `GET /api/v1/owner/residents?propertyId={uuid}&status=ACTIVE`
+- **Access**: `OWNER`
+
+### 6.3 Check Out Resident (`OWNER`)
+- **Endpoint**: `POST /api/v1/owner/stays/{stayId}/checkout`
+- **Access**: `OWNER`
+
+### 6.4 View Assigned PG & Stay Summary (`RESIDENT`)
+- **Endpoint**: `GET /api/v1/resident/my-pg`
+- **Access**: `RESIDENT`
+- **Behavior**: Returns strictly the resident's own active PG address, emergency contact, room number, bed code, monthly rent, and owner name.
+
+---
+
+## 7. Billing & Rent Invoices Module
+
+### 7.1 Generate Monthly Invoices (`OWNER`)
+- **Endpoint**: `POST /api/v1/owner/invoices/generate`
+- **Access**: `OWNER`
+- **Request**: `{ "propertyId": "...", "billingMonth": "2026-12-01" }`
+- **Behavior**: Generates idempotent monthly invoices for all active stays in the property and triggers `InvoiceIssuedEvent` -> FCM push notification to residents.
+
+### 7.2 List Invoices (`OWNER` vs `RESIDENT`)
+- **Owner View**: `GET /api/v1/owner/invoices?status=ISSUED&month=2026-12-01` (scoped by `owner_id`)
+- **Resident View**: `GET /api/v1/resident/invoices` (scoped strictly by `resident_id == currentUser.id`)
+
+---
+
+## 8. Payments & Razorpay Direct Settlement Module
+
+### 8.1 Create Razorpay Order for Rent Invoice (`RESIDENT`)
+- **Endpoint**: `POST /api/v1/resident/payments/orders`
+- **Access**: `RESIDENT`
+- **Request**:
+```json
+{
+  "invoiceId": "c1842e90-7d83-4c51-a6e1-118b7e9124af",
+  "idempotencyKey": "pay-inv-c1842e90-attempt-1"
+}
+```
+- **Preconditions**:
+  1. Invoice belongs to authenticated `RESIDENT` and status is `ISSUED`, `OVERDUE`, or `PARTIALLY_PAID`.
+  2. Property's `OWNER` has an `ACTIVATED` Razorpay merchant account.
+- **Response `201 Created`** (Returns ONLY public Key ID and Order ID created on the Owner's Razorpay account):
+```json
+{
+  "success": true,
+  "data": {
+    "paymentId": "9a712b34-...",
+    "razorpayOrderId": "order_P9xK2L81mQp",
+    "razorpayKeyId": "rzp_live_OwnerPublicKey",
+    "amountInPaise": 950000,
+    "currency": "INR",
+    "merchantName": "Sunrise Residency PG"
+  }
+}
+```
+
+### 8.2 Verify Client Payment Signature (`RESIDENT`)
+- **Endpoint**: `POST /api/v1/resident/payments/verify`
+- **Access**: `RESIDENT`
+- **Request**:
+```json
+{
+  "paymentId": "9a712b34-...",
+  "razorpayOrderId": "order_P9xK2L81mQp",
+  "razorpayPaymentId": "pay_P9xL9921AbC",
+  "razorpaySignature": "4d8f29e1c..."
+}
+```
+
+### 8.3 Record Offline Payment (`OWNER`)
+- **Endpoint**: `POST /api/v1/owner/payments/manual`
+- **Access**: `OWNER`
+- **Request**: `{ "invoiceId": "...", "paymentMethod": "CASH", "amount": 9500.00, "notes": "Cash receipt #104" }`
+
+### 8.4 Authoritative Razorpay Webhook
+- **Endpoint**: `POST /api/v1/webhooks/razorpay`
+- **Access**: Public (Authenticated cryptographically via `X-Razorpay-Signature` HMAC-SHA256)
+- **Behavior**: Validates signature against decrypted merchant/partner webhook secret, deduplicates via `razorpay_event_id`, updates `payments` to `CAPTURED` and `rent_invoices` to `PAID`, and triggers FCM payment confirmation notifications to both Owner and Resident.
+
+---
+
+## 9. Complaints & Maintenance Module
+
+### 9.1 Submit Complaint (`RESIDENT`)
+- **Endpoint**: `POST /api/v1/resident/complaints`
+- **Access**: `RESIDENT`
+- **Request**:
+```json
+{
+  "title": "Wi-Fi router offline on 2nd floor",
+  "description": "No internet connectivity in Room 204 since morning.",
+  "category": "WIFI",
+  "priority": "HIGH"
+}
+```
+
+### 9.2 List My Complaints (`RESIDENT`)
+- **Endpoint**: `GET /api/v1/resident/complaints`
+- **Access**: `RESIDENT`
+
+### 9.3 List Property Complaints (`OWNER`)
+- **Endpoint**: `GET /api/v1/owner/complaints?status=OPEN`
+- **Access**: `OWNER`
+
+### 9.4 Update Complaint Status (`OWNER`)
+- **Endpoint**: `PATCH /api/v1/owner/complaints/{complaintId}`
+- **Access**: `OWNER`
+- **Request**: `{ "status": "RESOLVED", "resolutionNotes": "Replaced faulty Ethernet patch cable and rebooted access point." }`
+- **Behavior**: Triggers `ComplaintStatusUpdatedEvent` -> sends FCM push notification to the filing Resident.
+
+---
+
+## 10. Notifications Module (`/api/v1/notifications`)
+
+### 10.1 Register Android FCM Device Token
+- **Endpoint**: `POST /api/v1/notifications/devices`
+- **Access**: `OWNER`, `RESIDENT`
+- **Request**:
+```json
+{
+  "deviceToken": "fcm_android_token_xyz...",
+  "platform": "ANDROID",
+  "appVersion": "1.0.0"
 }
 ```

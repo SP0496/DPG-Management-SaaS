@@ -2,14 +2,11 @@ package com.pgmanagement.saas;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 
 /**
- * Main Entry Point for PG-Management-SaaS Backend.
- * Configured with JPA Auditing and strict security-first defaults.
+ * Main entry point for PG-Management-SaaS modular monolithic backend.
  */
 @SpringBootApplication
-@EnableJpaAuditing
 public class Application {
 
     public static void main(String[] args) {

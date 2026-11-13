@@ -4,12 +4,24 @@ export default {
   theme: {
     extend: {
       colors: {
-        brand: {
-          50: '#F0F9FF',
-          100: '#E0F2FE',
-          500: '#0EA5E9',
-          600: '#0284C7',
-          700: '#0369A1',
+        ice: {
+          DEFAULT: '#EAF6FF',
+          light: '#F4FAFF',
+          dark: '#D5EBFC',
+        },
+        navy: {
+          DEFAULT: '#142B4A',
+          hover: '#1D3D63',
+          muted: '#334E73',
+        },
+        tangerine: {
+          DEFAULT: '#FF8C42',
+          hover: '#E8752E',
+          tint: '#FFF1E6',
+        },
+        disabled: {
+          bg: '#D1D5DB',
+          text: '#6B7280',
         },
       },
     },

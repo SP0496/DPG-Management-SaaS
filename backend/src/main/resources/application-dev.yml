@@ -1,14 +1,17 @@
-# ==============================================================================
-# Development Profile (application-dev.yml)
-# ==============================================================================
+# Development profile settings
 spring:
   jpa:
-    hibernate:
-      ddl-auto: update
     show-sql: false
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
 
 logging:
   level:
     root: INFO
-    com.pgmanagement: DEBUG
+    com.pgmanagement.saas: DEBUG
+    org.flywaydb: INFO
     org.springframework.security: INFO

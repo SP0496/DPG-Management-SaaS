@@ -4,17 +4,23 @@
     "slug": "pg-management-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#EAF6FF"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.pgmanagement.saas"
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#1E293B"
+        "backgroundColor": "#142B4A"
       },
-      "package": "com.pgmanagement.saas"
+      "package": "com.pgmanagement.saas",
+      "permissions": [
+        "android.permission.POST_NOTIFICATIONS"
+      ]
     }
   }
 }

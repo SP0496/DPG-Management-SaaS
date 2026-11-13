@@ -1,44 +1,52 @@
 import React from 'react';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
+import { SecuritySetupModal } from '../components/SecuritySetupModal';
 import { useAuth } from '../context/AuthContext';
+import { useSecurity } from '../context/SecurityContext';
+import { AppLockScreen } from '../screens/auth/AppLockScreen';
+import { SplashScreen } from '../screens/auth/SplashScreen';
+import { COLORS } from '../theme/colors';
 import { AuthNavigator } from './AuthNavigator';
-import { AdminNavigator } from './AdminNavigator';
-import { TenantNavigator } from './TenantNavigator';
+import { OwnerNavigator } from './OwnerNavigator';
+import { ResidentNavigator } from './ResidentNavigator';
 
-/**
- * Root Navigator with Zero-Trust Role-Based Route Guards.
- * Guarantees that only authorized roles can mount protected navigator trees.
- */
+const AppNavigationTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    background: COLORS.iceBlue,
+    card: COLORS.midnightNavy,
+    text: COLORS.midnightNavy,
+    border: COLORS.navyBorder,
+    primary: COLORS.tangerine,
+    notification: COLORS.tangerine,
+  },
+};
+
 export const RootNavigator: React.FC = () => {
-  const { isAuthenticated, user, isLoading } = useAuth();
+  const { isAuthenticated, user, isBootstrapping } = useAuth();
+  const { isAppLocked } = useSecurity();
 
-  if (isLoading) {
+  if (isBootstrapping) {
+    return <SplashScreen />;
+  }
+
+  if (!isAuthenticated) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#3B82F6" />
-      </View>
+      <NavigationContainer theme={AppNavigationTheme}>
+        <AuthNavigator />
+      </NavigationContainer>
     );
   }
 
+  if (isAppLocked) {
+    return <AppLockScreen />;
+  }
+
   return (
-    <NavigationContainer>
-      {!isAuthenticated ? (
-        <AuthNavigator />
-      ) : user?.role === 'ROLE_PROPERTY_ADMIN' || user?.role === 'ROLE_SUPER_ADMIN' ? (
-        <AdminNavigator />
-      ) : (
-        <TenantNavigator />
-      )}
+    <NavigationContainer theme={AppNavigationTheme}>
+      {user?.role === 'OWNER' ? <OwnerNavigator /> : <ResidentNavigator />}
+      <SecuritySetupModal />
     </NavigationContainer>
   );
 };
-
-const styles = StyleSheet.create({
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#0F172A',
-  },
-});

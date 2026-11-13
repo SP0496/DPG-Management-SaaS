@@ -23,6 +23,9 @@
 *.jks
 credentials.json
 service-account*.json
+google-services.json
+**/google-services.json
+GoogleService-Info.plist
 jwt-secret*.txt
 secrets/
 

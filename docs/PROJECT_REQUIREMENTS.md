@@ -1,68 +1,102 @@
-# Project Requirements: PG-Management-SaaS
+# Project Requirements: PG Management SaaS
 
 ## 1. Executive Summary
-**PG-Management-SaaS** is a multi-tenant Paying Guest (PG) and Hostel property management platform designed to automate and secure operations for PG owners, property managers, wardens, and residents (tenants).
+**PG Management SaaS** is a multi-tenant Paying Guest (PG) and Hostel management platform engineered for Android mobile users, powered by a modular monolithic Java Spring Boot backend and a multi-tenant PostgreSQL database.
 
-The platform comprises:
-- **Backend API**: High-performance, zero-trust Spring Boot 3.3+ microservice architecture.
-- **Mobile Client**: Cross-platform React Native / Expo application with role-aware interfaces.
-- **Infrastructure**: Containerized PostgreSQL, Redis, and reverse proxy with automated health checks.
-
----
-
-## 2. Core Stakeholders & Roles
-1. **Super Admin**: Platform operator managing tenant organizations, system subscriptions, billing, and platform-wide audit logs.
-2. **Property Admin (PG Owner)**: Owner/operator managing multiple hostels/properties, room inventories, tariffs, staff, and financial reports.
-3. **Property Staff / Warden**: Operational staff handling check-ins, check-outs, maintenance tickets, and daily attendance.
-4. **Resident (Tenant)**: Registered occupant accessing rent dues, digital receipts, visitor passes, and maintenance requests.
+The platform connects two primary user personas:
+1. **OWNER**: PG property owners who manage properties, rooms, beds, resident onboarding, automated rent invoicing, payment records, complaints, and their own Razorpay merchant account.
+2. **RESIDENT**: PG occupants who access their assigned PG stay, view monthly rent invoices, pay rent directly through Razorpay, receive digital receipts, and manage maintenance complaints.
 
 ---
 
-## 3. Functional Requirements (FR)
+## 2. Workspace Gap Analysis (Current State vs. Target Architecture)
 
-### 3.1 Authentication & Identity Management
-- **FR-AUTH-1**: Multi-factor capable authentication using JWT with short-lived access tokens (15m) and cryptographically secure refresh tokens (7d).
-- **FR-AUTH-2**: Password complexity enforcement (minimum 10 characters, mixed case, numbers, special characters).
-- **FR-AUTH-3**: Account lockout and exponential backoff after 5 consecutive failed attempts.
-- **FR-AUTH-4**: Secure logout invalidating tokens via Redis blacklist.
-
-### 3.2 Property & Inventory Management
-- **FR-PROP-1**: Hierarchical property modeling: `Organization` -> `Property` -> `Floor` -> `Room` -> `Bed`.
-- **FR-PROP-2**: Real-time room and bed vacancy tracking with occupancy statuses (`VACANT`, `OCCUPIED`, `UNDER_MAINTENANCE`, `RESERVED`).
-- **FR-PROP-3**: Amenity configuration per property (WiFi, Food, Laundry, AC, Power Backup).
-
-### 3.3 Tenant Lifecycle & Onboarding
-- **FR-TEN-1**: Digital tenant onboarding with secure KYC document upload, government ID verification, and emergency contact registry.
-- **FR-TEN-2**: Bed allocation with lease agreements, security deposit tracking, and check-in checklists.
-- **FR-TEN-3**: Automated rent cycle generation, grace periods, late-fee calculation, and automated invoice PDF generation.
-- **FR-TEN-4**: Notice period management, move-out inspections, and deposit refund reconciliation.
-
-### 3.4 Complaints & Maintenance Management
-- **FR-CMP-1**: Ticket submission with priority levels (`LOW`, `MEDIUM`, `HIGH`, `URGENT`), category tagging, and image attachment.
-- **FR-CMP-2**: Staff assignment, status transitions (`OPEN`, `IN_PROGRESS`, `RESOLVED`, `CLOSED`), and SLA tracking.
-
-### 3.5 Role-Based Dashboard & Reports
-- **FR-REP-1**: Owner dashboard showing monthly revenue, pending receivables, occupancy rates, and expense summaries.
-- **FR-REP-2**: Tenant portal for instant rent payment via secure gateway proxy and receipt downloads.
+| Component | Current Workspace State | Target Production Architecture |
+|---|---|---|
+| **Mobile Platform** | Expo `~52.0.0`, React Native `0.76.3`, `newArchEnabled: true`. | Expo Prebuild / Android Dev Client (`npx expo prebuild --platform android`) to support native Firebase & Razorpay SDKs. |
+| **Authentication** | Email + Password (`AuthController`, `AuthService`, `BCryptPasswordEncoder(12)`). | Firebase Phone OTP (client SDK + Firebase Admin ID Token verification on backend) issuing stateless HMAC-SHA512 JWT access & refresh tokens. |
+| **User Roles** | 4 roles in `Role.java` (`ROLE_SUPER_ADMIN`, `ROLE_PROPERTY_ADMIN`, `ROLE_STAFF`, `ROLE_TENANT`). | Consolidated strictly to **2 primary roles**: `OWNER` and `RESIDENT` (mapping/migrating existing definitions cleanly). |
+| **Backend Layout** | Flat layered packages (`controller`, `service`, `repository`, `entity`). | **Modular Monolith** organized into isolated vertical domain modules (`identity`, `property`, `resident`, `billing`, `payment`, `complaint`, `notification`, `audit`). |
+| **Payments** | Not implemented. | **Independent PG Owner Merchant-Account Architecture** via Razorpay approved integration & onboarding; rent settles directly into each Owner's Razorpay merchant account and registered bank account. |
+| **Notifications** | Not implemented. | Firebase Cloud Messaging (FCM) via Firebase Admin SDK for real-time payment receipts, invoice alerts, and complaint updates. |
+| **Database Schema** | `organizations`, `users`, `properties`, `rooms`, `beds`, `tenant_stays` in `init.sql`. | Versioned migrations (Flyway) adding `owner_merchant_accounts`, `rent_invoices`, `payments`, `razorpay_webhook_events`, `complaints`, `fcm_device_tokens`, `audit_logs`, and `firebase_uid`. |
 
 ---
 
-## 4. Non-Functional Requirements (NFR)
+## 3. Stakeholders & Role Matrix
 
-### 4.1 Security & Compliance (Defense-in-Depth)
-- **NFR-SEC-1 (Zero Hardcoded Secrets)**: All secrets (DB credentials, JWT signing keys, payment keys) must be injected strictly via environment variables.
-- **NFR-SEC-2 (IDOR / BOLA Prevention)**: Strict multi-tenant row-level access control. All queries must enforce `organization_id` or `property_id` scoping tied to the authenticated user.
-- **NFR-SEC-3 (XSS & Injection Immunity)**: All inputs sanitized via Bean Validation and parameterized JPA/Hibernate queries.
-- **NFR-SEC-4 (Rate Limiting)**: Strict multi-tier rate limiting (Bucket4j/Redis) to protect against DDoS, credential stuffing, and brute force.
-- **NFR-SEC-5 (Security Headers)**: Standardized HTTP headers (`Content-Security-Policy`, `Strict-Transport-Security`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`).
-- **NFR-SEC-6 (Debug Mode Disabled)**: Complete suppression of server stack traces and internal schema hints in production error payloads.
-- **NFR-SEC-7 (Password Hashing)**: Industry-standard BCrypt with work factor 12 (or Argon2id).
+### 3.1 OWNER (`ROLE_OWNER`)
+- Authenticate via Firebase Phone OTP and complete owner profile setup.
+- Onboard and connect an independent Razorpay merchant account and verified bank account (subject to Razorpay's approved KYC and onboarding flow).
+- Create and manage multiple PG properties, floors, rooms, and beds.
+- Onboard residents by phone number, assign vacant beds, define monthly rent and security deposits, and manage check-outs.
+- Generate, view, and reconcile monthly rent invoices and payment records (including cash/UPI manual mark-as-paid or automated Razorpay settlements).
+- View and resolve resident maintenance complaints with status updates and push notifications.
 
-### 4.2 Reliability & Performance
-- **NFR-REL-1**: 99.9% API uptime with automated Docker health checks.
-- **NFR-PERF-1**: P95 API response times under 200ms for read operations and under 400ms for writes.
-- **NFR-PERF-2**: Connection pool optimization with HikariCP (max pool size 10, connection timeout 30s).
+### 3.2 RESIDENT (`ROLE_RESIDENT`)
+- Authenticate via Firebase Phone OTP using the phone number registered by their PG owner (or self-sign-up pending owner bed assignment).
+- View assigned PG property details, room/bed allocation, house rules, and emergency contacts.
+- View itemized monthly rent invoices (base rent, utilities, late fees) and payment history.
+- Pay rent directly via Razorpay Android Checkout, settling directly to the assigned PG Owner's Razorpay merchant account.
+- File maintenance complaints with category/priority and track status updates via FCM push notifications.
 
-### 4.3 Maintainability & Code Quality
-- Clean Layered Architecture (`Controller` -> `Service` -> `Repository` -> `Entity`).
-- Comprehensive DTO boundary mapping (never expose JPA entities in REST endpoints).
+---
+
+## 4. Functional Requirements
+
+### 4.1 Identity & Firebase Phone OTP Authentication
+- **FR-AUTH-01**: Users authenticate via phone number and 6-digit OTP handled by Firebase Authentication on React Native Android.
+- **FR-AUTH-02**: React Native sends the verified Firebase ID Token to Spring Boot (`POST /api/v1/auth/otp/verify`).
+- **FR-AUTH-03**: Spring Boot verifies the Firebase ID Token signature, issuer, expiration, and phone claim via Firebase Admin SDK (`FirebaseAuth.verifyIdToken()`).
+- **FR-AUTH-04**: Backend issues short-lived Access JWT (15m) and Refresh Token (7d), stored in Android Keystore via `expo-secure-store`.
+- **FR-AUTH-05**: Explicit role selection during first-time registration (`OWNER` vs `RESIDENT`). If a phone number was pre-invited by an Owner as a Resident, the system automatically binds the user to `RESIDENT` and links their active stay.
+
+### 4.2 Property, Room & Bed Inventory (OWNER Scoped)
+- **FR-PROP-01**: Owners can create, update, and deactivate PG properties under their `owner_id`.
+- **FR-PROP-02**: Hierarchical structure: `Property` -> `Room` (room number, floor, sharing capacity, base rent) -> `Bed` (bed code, status: `VACANT`, `OCCUPIED`, `MAINTENANCE`, `RESERVED`).
+- **FR-PROP-03**: Optimistic locking (`@Version`) on `Bed` entities prevents race-condition double allocation of the same bed.
+
+### 4.3 Resident Lifecycle Management
+- **FR-RES-01**: Owner onboards a resident by phone number, full name, check-in date, agreed monthly rent, security deposit, and vacant `bed_id`.
+- **FR-RES-02**: System validates that the target `bed_id` belongs to a property owned by the requesting `OWNER` (IDOR prevention).
+- **FR-RES-03**: Resident can view their active stay summary, PG address, room/bed number, and lease terms, and submit move-out notice requests.
+
+### 4.4 Independent PG Owner Razorpay Merchant Architecture
+- **FR-PAY-01 (No Platform Custody)**: The SaaS platform MUST NOT pool or hold resident rent funds in a shared master account for manual disbursement. Rent payments MUST settle directly into each PG Owner's own Razorpay merchant account and registered bank account.
+- **FR-PAY-02 (Approved Onboarding & Status Gate)**: Owners complete Razorpay's approved merchant onboarding (via Razorpay Partner OAuth 2.0 / Linked Account onboarding workflow). Rent payment orders cannot be initiated for a property until its Owner's `merchant_status` is `ACTIVE` and bank settlement verification is approved by Razorpay.
+- **FR-PAY-03 (Order Creation)**: When a Resident initiates payment for an unpaid `RentInvoice`, the backend verifies that the invoice belongs to the Resident (`resident_id == currentUser.id`), retrieves the PG Owner's Razorpay merchant credentials/account identifier, and creates a Razorpay Order directly on that Owner's Razorpay merchant account.
+- **FR-PAY-04 (Cryptographic Verification & Webhooks)**: Payment completion requires both client signature verification (`HMAC-SHA256(order_id + "|" + payment_id)`) AND asynchronous Razorpay webhook verification (`X-Razorpay-Signature`) before marking the invoice `PAID`.
+- **FR-PAY-05 (Idempotency)**: Duplicate webhook deliveries or repeated payment confirmation calls must be safely deduplicated via unique `razorpay_payment_id` and `idempotency_key` database constraints.
+
+### 4.5 Rent Invoicing & Ledger
+- **FR-INV-01**: Scheduled batch job generates monthly invoices for all `ACTIVE` stays on the owner's configured billing day, or Owners can trigger manual invoice generation.
+- **FR-INV-02**: Invoice statuses: `DRAFT`, `ISSUED`, `PARTIALLY_PAID`, `PAID`, `OVERDUE`, `CANCELLED`.
+- **FR-INV-03**: Immutable payment ledger recording payment method (`RAZORPAY`, `CASH`, `UPI_MANUAL`), Razorpay IDs, timestamps, and receipt numbers.
+
+### 4.6 Complaints & Maintenance Desk
+- **FR-CMP-01**: Residents submit maintenance complaints (`PLUMBING`, `ELECTRICAL`, `WIFI`, `HOUSEKEEPING`, `FOOD`, `OTHER`) scoped strictly to their assigned `property_id` and `stay_id`.
+- **FR-CMP-02**: Owners view complaints across their properties and transition statuses (`OPEN` -> `IN_PROGRESS` -> `RESOLVED` -> `CLOSED`) with resolution remarks.
+
+### 4.7 Firebase Cloud Messaging (FCM) Notifications
+- **FR-FCM-01**: Mobile app registers its Android FCM device token with backend (`POST /api/v1/notifications/devices`) upon login and on token refresh.
+- **FR-FCM-02**: Automated push notifications dispatched asynchronously on key domain events:
+  - Resident receives push notification when a monthly rent invoice is issued or overdue.
+  - Owner and Resident receive push notifications when Razorpay payment is captured.
+  - Resident receives push notification when Owner updates a complaint status.
+  - Owner receives push notification when a Resident files a new complaint.
+
+---
+
+## 5. Non-Functional Requirements
+
+### 5.1 Multi-Tenant Security & Data Isolation
+- **NFR-SEC-01**: Every tenant-owned record (`properties`, `rooms`, `beds`, `stays`, `rent_invoices`, `payments`, `complaints`) carries `owner_id`. Every repository query initiated by an `OWNER` MUST enforce `WHERE owner_id = :authenticatedOwnerId`.
+- **NFR-SEC-02**: Every query initiated by a `RESIDENT` MUST enforce `WHERE resident_id = :authenticatedResidentId` (preventing cross-resident and cross-PG data access).
+- **NFR-SEC-03**: Owner Razorpay API secrets / OAuth tokens MUST be encrypted at rest in PostgreSQL using AES-256-GCM envelope encryption and NEVER returned in any REST response or sent to the mobile client.
+- **NFR-SEC-04**: Strict Bucket4j rate limiting: 5 req/min on OTP/Auth routes, 60 req/min on general routes, plus dedicated signature validation on public webhook endpoints.
+- **NFR-SEC-05**: Production error responses mask stack traces and SQL exceptions via `GlobalExceptionHandler`.
+
+### 5.2 Performance & Reliability
+- **NFR-REL-01**: P95 API latency under 250ms for mobile list/detail endpoints.
+- **NFR-REL-02**: All database schema changes managed deterministically via Flyway migrations (`ddl-auto: validate` in production).
+- **NFR-REL-03**: Payment webhook processing uses database row-level locking and idempotency keys to guarantee zero duplicate ledger entries.

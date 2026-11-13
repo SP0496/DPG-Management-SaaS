@@ -1,11 +1,12 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { LoginScreen } from '../screens/LoginScreen';
-import { RegisterScreen } from '../screens/RegisterScreen';
+import { MobileLoginScreen } from '../screens/auth/MobileLoginScreen';
+import { OtpVerificationScreen } from '../screens/auth/OtpVerificationScreen';
+import { COLORS } from '../theme/colors';
 
 export type AuthStackParamList = {
-  Login: undefined;
-  Register: undefined;
+  MobileLogin: undefined;
+  OtpVerification: undefined;
 };
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
@@ -14,13 +15,22 @@ export const AuthNavigator: React.FC = () => {
   return (
     <Stack.Navigator
       screenOptions={{
-        headerStyle: { backgroundColor: '#0F172A' },
-        headerTintColor: '#F8FAFC',
-        headerTitleStyle: { fontWeight: '600' },
+        headerStyle: { backgroundColor: COLORS.midnightNavy },
+        headerTintColor: COLORS.iceBlue,
+        headerTitleStyle: { fontWeight: '700' },
+        contentStyle: { backgroundColor: COLORS.iceBlue },
       }}
     >
-      <Stack.Screen name="Login" component={LoginScreen} options={{ title: 'Sign In' }} />
-      <Stack.Screen name="Register" component={RegisterScreen} options={{ title: 'Create Account' }} />
+      <Stack.Screen
+        name="MobileLogin"
+        component={MobileLoginScreen}
+        options={{ title: 'StayLedger PG' }}
+      />
+      <Stack.Screen
+        name="OtpVerification"
+        component={OtpVerificationScreen}
+        options={{ title: 'OTP Verification' }}
+      />
     </Stack.Navigator>
   );
 };

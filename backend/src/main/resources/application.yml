@@ -1,75 +1,94 @@
 # ==============================================================================
-# Spring Boot Base Configuration (Zero Hardcoded Secrets)
-# All sensitive variables are externalized via environment variables
+# PG-Management-SaaS Spring Boot Base Configuration
+# Zero secrets or credentials are stored in configuration files.
+# All sensitive values MUST be injected via environment variables.
 # ==============================================================================
 
 server:
   port: ${SERVER_PORT:8080}
   servlet:
     context-path: /api/v1
-  # Security: Suppress server identification header to avoid server fingerprinting
-  server-header: ""
   error:
-    whitelabel:
-      enabled: false
+    include-message: never
+    include-binding-errors: never
+    include-stacktrace: never
+    include-exception: false
+  server-header: ""
 
 spring:
   application:
-    name: pg-management-backend
+    name: pg-management-saas-backend
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
 
-  # Database Connection Configuration (HikariCP)
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:pg_management_db}?sslmode=prefer
-    username: ${DB_USER:pg_admin}
-    password: ${DB_PASSWORD:change_this_to_a_strong_password_in_production}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:pg_management_db}?sslmode=${DB_SSL_MODE:prefer}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: ${DB_MAX_POOL_SIZE:10}
-      minimum-idle: ${DB_MIN_IDLE:5}
-      idle-timeout: 300000
-      connection-timeout: 30000
-      max-lifetime: 1800000
+      minimum-idle: ${DB_MIN_IDLE:2}
+      idle-timeout: 30000
+      connection-timeout: 20000
       leak-detection-threshold: 60000
-      pool-name: PGManagementHikariPool
 
-  # JPA & Hibernate Settings
   jpa:
     open-in-view: false
     hibernate:
       ddl-auto: validate
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
         jdbc:
-          lob:
-            non_contextual_creation: true
+          time_zone: UTC
 
-# Security & JWT Configuration
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+    validate-on-migrate: true
+
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    default-property-inclusion: non_null
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when_authorized
+      probes:
+        enabled: true
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: alpha
+    tagsSorter: alpha
+
 app:
   security:
     jwt:
-      # Minimum 256-bit secret key encoded in Base64
-      secret: ${JWT_SECRET:dGhpcy1pcy1hLXZlcnktc2VjdXJlLTI1Ni1iaXQtand0LXNlY3JldC1rZXktZm9yLWRldmVsb3BtZW50LW9ubHktZ2VuZXJhdGUtbmV3LWluLXByb2Q=}
-      expiration-ms: ${JWT_ACCESS_EXPIRATION_MS:900000}       # 15 minutes
-      refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000} # 7 days
+      secret: ${JWT_SECRET}
+      expiration-ms: ${JWT_ACCESS_EXPIRATION_MS:900000}
+      refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}
     cors:
       allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:8081,http://10.0.2.2:8080}
       allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
       allowed-headers: Authorization,Content-Type,X-Requested-With,Accept,Origin
       max-age: 3600
     rate-limit:
-      auth-per-minute: ${RATE_LIMIT_AUTH_PER_MINUTE:5}
-      general-per-minute: ${RATE_LIMIT_GENERAL_PER_MINUTE:60}
-
-# Actuator Health Endpoints
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info
-      base-path: /actuator
-  endpoint:
-    health:
-      show-details: never
+      auth-per-minute: ${RATE_LIMIT_AUTH_PER_MINUTE:10}
+      general-per-minute: ${RATE_LIMIT_GENERAL_PER_MINUTE:120}
+  firebase:
+    enabled: ${FIREBASE_AUTH_ENABLED:true}
+    project-id: ${FIREBASE_PROJECT_ID:}
+    credentials-path: ${FIREBASE_CREDENTIALS_PATH:}
+    credentials-json: ${FIREBASE_SERVICE_ACCOUNT_JSON:}
+    owner-phones: ${OWNER_ALLOWLIST_PHONES:}
