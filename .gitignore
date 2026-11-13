@@ -122,3 +122,7 @@ crash-dumps/
 pgdata/
 **/pgdata/
 dump.rdb
+backups/
+*.dump
+*.backup
+*.sql.gz
